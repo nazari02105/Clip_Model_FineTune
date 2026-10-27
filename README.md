@@ -1,49 +1,91 @@
-# Clip-Model-FineTune
-## Cifar10 Dataset
-### No Augmentation and No Finetune
-In [this file](./Cifar10FineTune/1-NoFineTuneNoAugmentation.ipynb), before using Clip and other methods, we trained a simple network on the Cifar10 dataset to see the initial accuracy without Clip and be able to compare. No specific techniques such as augmentation or LR Scheduler have been applied in this file.
-<p align="center">
-  <img src="https://i.ibb.co/0n7npZB/1.png">
-</p>
+# CLIP Model Fine-Tuning
 
-### No Finetune With Augmentation
-In [this file](./Cifar10FineTune/2-NoFineTuneWIthAugmentation.ipynb), which is quite similar to the previous section, some improvements such as augmentation, lr scheduler, weight decay, etc. have been added and the accuracy has improved compared to before.
-<p align="center">
-  <img src="https://i.ibb.co/1MFDRgf/2.png">
-</p>
+Experiments that fine-tune the image encoder of OpenAI's [CLIP](https://github.com/openai/CLIP) model for image classification, on two datasets:
 
-### No Augmentation With Finetune (Without Freezing any Layers)
-In [this file](./Cifar10FineTune/3-NoAugmentationWithFineTune.ipynb), I removed the augmentation, scheduling, etc. and wanted to see how the accuracy would change only by fine-tuning. Moreover, we can fine-tune in several ways, and in [this file](./Cifar10FineTune/3-NoAugmentationWithFineTune.ipynb), I did it without freezing any layers, even the layers related to the Clip model were not frozen.
-<p align="center">
-  <img src="https://i.ibb.co/7KR4fkh/3.png">
-</p>
+- **CIFAR-10** (10 classes of small everyday images): CLIP is compared with two CNNs trained from scratch, and with different ways of freezing CLIP.
+- **Colorectal cancer (CRC) histology images** (3 grades): tissue regions are found in large slide images, cut into patches, and CLIP is fine-tuned on the patches.
 
-### No Augmentation With Finetune (With Freezing Clip Part Layers)
-In [this file](./Cifar10FineTune/4-NoAugmentationWithFineTune.ipynb), which is almost similar to the previous section, the only addition is that the layers of the Clip section of the model have been frozen and only the head of the model is updated.
-<p align="center">
-  <img src="https://i.ibb.co/VHMZfkL/4.png">
-</p>
+All experiments are Jupyter notebooks made for **Google Colab**.
 
-### No Augmentation With Finetune (With Freezing Clip Part Layers After 2 Epochs)
-In [this file](./Cifar10FineTune/5-NoAugmentationWithFineTune.ipynb), which is exactly like the previous two sections, I froze the Clip layers but not from the beginning, and I did this after two epochs.
-<p align="center">
-  <img src="https://i.ibb.co/hdsGGQB/5.png">
-</p>
+## The CLIP model
 
-### Finetune With Augmentation (Without Freezing any Layers)
-Since the best accuracy in cases without augmentation was achieved when no freezing was done, I applied this case without freezing and also applied the same factors such as lr scheduling, weight decay, etc in [this file](./Cifar10FineTune/6-FineTuneWithAugmentation.ipynb).
-<p align="center">
-  <img src="https://i.ibb.co/0mNnK02/6.png">
-</p>
+Every CLIP notebook uses the same model:
 
-## CRC Dataset
-### Finetune With Augmentation
-In [this file](./CRCFineTune/NoAugmentationWithFineTune.ipynb), first of all, the main dataset was downloaded, and one of the most important steps was to find the ROI (region of interest). Because in each image, there is a lot of non-tissue area, and for this reason, it is better not to include them in the network learning process. For this purpose, I used the Otsu threshold and found the ROI by converting it to the HSV space. However, the result was not good, and many non-tissue areas were still considered as ROI. So I used morphological operations with different kernels and opening and closing operations to optimize this ROI. Therefore, the mask of each image is created, and patches are generated based on it. Since generating patches was very time-consuming, I limited the amount of the dataset and trained the model on a small part of it, but if you want, you can remove this limitation. Finally, as in the previous sections, I added the network and lr_schedule and weight decay, and achieved a very good accuracy.
-<p align="center">
-  <img src="https://i.ibb.co/QfR8kS4/2023-04-28-10h19-27.png"/>
-  <br/>
-  a) refers to the original image. b) is for using HSV channels and otsu threshold. c) is after applying morphology and different kernels.
-</p>
-<p align="center">
-  <img src="https://i.ibb.co/0mNnK02/6.png">
-</p>
+1. Each image is resized with CLIP's own preprocessing (224 × 224).
+2. The **CLIP ViT-B/32 image encoder** turns it into 512 numbers.
+3. A small head classifies it: `Linear(512 → 256) → ReLU → Linear(256 → number of classes)`.
+
+"Fine-tuning" means the CLIP encoder's weights are also trained. "Freezing" means they are kept fixed and only the head is trained.
+
+## CIFAR-10 experiments
+
+Folder: `Cifar10FineTune/`
+
+| # | Notebook | Model | What's special | Test accuracy |
+|---|---|---|---|---|
+| 1 | `1-NoFineTuneNoAugmentation` | Simple CNN (6 conv + 3 linear layers) | Baseline. No augmentation, no LR schedule. Adam, lr 0.001, 10 epochs. | 75.3% |
+| 2 | `2-NoFineTuneWIthAugmentation` | ResNet9 | Augmentation (random crop + flip), normalization, One-Cycle LR schedule, weight decay, gradient clipping. 5 epochs. | 85.7% |
+| 3 | `3-NoAugmentationWithFineTune` | CLIP + head | **Nothing frozen**. No augmentation. Adam, lr 0.0001, 10 epochs. | 86.3% |
+| 4 | `4-NoAugmentationWithFineTune` | CLIP + head | **CLIP frozen from the start**, only the head is trained. lr 0.0005, 10 epochs. | 61.9% |
+| 5 | `5-NoAugmentationWithFineTune` | CLIP + head | **CLIP frozen after 2 epochs**. lr 0.0001, 10 epochs. | 65.9% |
+| 6 | `6-FineTuneWithAugmentation` | CLIP + head | **Nothing frozen**, plus augmentation (random crop + flip), One-Cycle LR schedule, weight decay and gradient clipping. 10 epochs. | **95.2%** |
+
+**Main result:** fine-tuning the whole CLIP encoder works much better than freezing it, and adding augmentation and an LR schedule gives the best result (95.2%).
+
+Notebook 3 also checks that the CLIP weights really change during training: it compares the weights before and after one training step.
+
+![Validation accuracy per epoch for the six CIFAR-10 experiments](images/cifar10_accuracy.png)
+
+## CRC experiment
+
+Folder: `CRCFineTune/`, notebook: `NoAugmentationWithFineTune.ipynb`
+
+**Dataset:** [Extended Colorectal Cancer Grading dataset](https://warwick.ac.uk/fac/cross_fac/tia/data/extended_crc_grading/) (University of Warwick): 300 large histology images in 3 classes: Grade 1 (normal), Grade 2 (low grade) and Grade 3 (high grade).
+
+**Steps:**
+
+1. **Find the tissue (ROI).** Large parts of each image are background. To make a tissue mask, the notebook:
+   - uses Otsu thresholds on the R, G and B channels to find the bright background,
+   - uses an Otsu threshold on the saturation channel (HSV) to find the tissue,
+   - cleans the mask with two **morphological openings** (a 9×9 square kernel, then a 7×7 cross kernel).
+2. **Cut patches.** It scans the mask and saves 224 × 224 patches from the tissue area into `Patch/Grade1`, `Patch/Grade2` and `Patch/Grade3`. After each saved patch, that area is removed from the mask, so the same spot isn't used again.
+3. **Fine-tune CLIP.** Same model as above with 3 outputs, nothing frozen, no augmentation, Adam with lr 0.0001, 10 epochs. The patches are split randomly into 80% training and 20% validation.
+
+![ROI steps: a) original image, b) HSV + Otsu mask, c) after morphological opening](images/crc_roi.png)
+
+**Result:** 95.7% validation accuracy after the last epoch (best: 97.8% at epoch 4).
+
+![CRC validation accuracy per epoch](images/crc_accuracy.png)
+
+**Important:** to save time, patch extraction stops as soon as every grade has at least one image's patches. In the saved run, that was **4 of the 300 images** (10,352 patches). Training and validation patches come from these same 4 images, so the validation accuracy does not show how the model works on new images. To use the whole dataset, remove this `break` at the end of the patch extraction cell:
+
+```python
+# because we don't have time
+if grade1_counter != 0 and grade2_counter != 0 and grade3_counter != 0:
+    break
+```
+
+## How to run
+
+1. Open a notebook in **Google Colab** (*File → Upload notebook*, or open it from GitHub).
+2. Turn on a GPU: *Runtime → Change runtime type → GPU*.
+3. Run all cells (*Runtime → Run all*).
+
+That's all. Each notebook installs CLIP (`pip install git+https://github.com/openai/CLIP.git`) and downloads its dataset itself:
+
+- **CIFAR-10:** from `https://s3.amazonaws.com/fast-ai-imageclas/cifar10.tgz` (fast.ai's copy, in folders per class).
+- **CRC:** from `https://warwick.ac.uk/fac/cross_fac/tia/data/extended_crc_grading/original_images.zip`. If this link doesn't work, download the original images from the [dataset page](https://warwick.ac.uk/fac/cross_fac/tia/data/extended_crc_grading/) and put the `.png` files in `./Data/Original_Images/`.
+
+**Time (on a Colab GPU):** the CIFAR-10 CLIP notebooks take about 8–11 minutes per epoch, so about 1.5–2 hours for 10 epochs. CRC training takes about 2 minutes per epoch (with the limited patches).
+
+The trained model is saved in the Colab session (for example `cifar10-cnn.pth`). Download it before the session ends if you want to keep it.
+
+## Notes
+
+- In notebooks 1, 3, 4 and 5, 5,000 training images are kept aside for validation, and the test set is used only at the end.
+- In notebooks 2 and 6, the **test set is also used for validation** during training. Their test accuracy is the last epoch's result on that set.
+- The CRC notebook's name says "NoAugmentation", and it indeed uses no augmentation, LR schedule or weight decay.
+
+## Tech
+
+Python, PyTorch, torchvision, [OpenAI CLIP](https://github.com/openai/CLIP), OpenCV, scikit-image (Otsu threshold, HSV), NumPy, Matplotlib.
