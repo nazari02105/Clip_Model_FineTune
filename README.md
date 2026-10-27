@@ -34,7 +34,7 @@ Folder: `Cifar10FineTune/`
 
 Notebook 3 also checks that the CLIP weights really change during training: it compares the weights before and after one training step.
 
-![Validation accuracy per epoch for the six CIFAR-10 experiments](images/cifar10_accuracy.png)
+![Validation accuracy per epoch for the six CIFAR-10 experiments](./cifar10_accuracy.png)
 
 ## CRC experiment
 
@@ -51,11 +51,11 @@ Folder: `CRCFineTune/`, notebook: `NoAugmentationWithFineTune.ipynb`
 2. **Cut patches.** It scans the mask and saves 224 × 224 patches from the tissue area into `Patch/Grade1`, `Patch/Grade2` and `Patch/Grade3`. After each saved patch, that area is removed from the mask, so the same spot isn't used again.
 3. **Fine-tune CLIP.** Same model as above with 3 outputs, nothing frozen, no augmentation, Adam with lr 0.0001, 10 epochs. The patches are split randomly into 80% training and 20% validation.
 
-![ROI steps: a) original image, b) HSV + Otsu mask, c) after morphological opening](images/crc_roi.png)
+![ROI steps: a) original image, b) HSV + Otsu mask, c) after morphological opening](./crc_roi.png)
 
 **Result:** 95.7% validation accuracy after the last epoch (best: 97.8% at epoch 4).
 
-![CRC validation accuracy per epoch](images/crc_accuracy.png)
+![CRC validation accuracy per epoch](./crc_accuracy.png)
 
 **Important:** to save time, patch extraction stops as soon as every grade has at least one image's patches. In the saved run, that was **4 of the 300 images** (10,352 patches). Training and validation patches come from these same 4 images, so the validation accuracy does not show how the model works on new images. To use the whole dataset, remove this `break` at the end of the patch extraction cell:
 
